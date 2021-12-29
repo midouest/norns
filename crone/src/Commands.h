@@ -64,6 +64,7 @@ namespace crone {
             SET_CUT_LOOP_START,
             SET_CUT_LOOP_END,
             SET_CUT_LOOP_FLAG,
+            SET_CUT_LOOP_PINGPONG,
             SET_CUT_POSITION,
 
             SET_CUT_FADE_TIME,

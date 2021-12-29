@@ -356,6 +356,12 @@ void OscInterface::addServerMethods() {
         Commands::softcutCommands.post(Commands::Id::SET_CUT_LOOP_FLAG, argv[0]->i, argv[1]->f);
     });
 
+
+    addServerMethod("/set/param/cut/pingpong", "if", [](lo_arg **argv, int argc) {
+        if (argc < 2) { return; }
+        Commands::softcutCommands.post(Commands::Id::SET_CUT_LOOP_PINGPONG, argv[0]->i, argv[1]->f);
+    });
+
     addServerMethod("/set/param/cut/fade_time", "if", [](lo_arg **argv, int argc) {
         if (argc < 2) { return; }
         Commands::softcutCommands.post(Commands::Id::SET_CUT_FADE_TIME, argv[0]->i, argv[1]->f);
