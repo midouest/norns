@@ -125,7 +125,7 @@ void crone::SoftcutClient::handleCommand(Commands::CommandPacket *p) {
 	cut.setLoopFlag(idx_0, value > 0.f);
 	break;
     case Commands::Id::SET_CUT_LOOP_PINGPONG:
-        cut.setLoopPingpong(p->idx_0, p->value > 0.f);
+        cut.setLoopPingPong(p->idx_0, p->value > 0.f);
         break;
     case Commands::Id::SET_CUT_FADE_TIME:
 	value = std::max(0.f, value);
