@@ -389,7 +389,7 @@ void crone_cut_buffer_copy_mono(int arg0, int arg1, float arg2, float arg3,
 void crone_cut_buffer_copy_stereo(float arg0, float arg1, float arg2,
                                   float arg3, float arg4, int arg5);
 void crone_cut_buffer_render(int arg0, float arg1, float arg2, int arg3);
-void crone_cut_query_position(int arg0);
+float crone_cut_query_position(int arg0);
 
 void crone_cut_reset();
 void crone_set_param_cut_phase_quant(int arg0, float arg1);

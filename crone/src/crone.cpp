@@ -146,12 +146,9 @@ void crone_cut_buffer_render(int arg0, float arg1, float arg2, int arg3) {
       });
 }
 
-void crone_cut_query_position(int arg0) {
+float crone_cut_query_position(int arg0) {
   int idx = arg0;
-  float pos = softcutClient->getPosition(idx);
-  (void)pos;
-  // FIXME
-  // lo_send(matronAddress, "/poll/softcut/position", "if", idx, pos);
+  return softcutClient->getPosition(idx);
 }
 
 void crone_cut_reset() {

@@ -129,10 +129,6 @@ static int handle_softcut_render(const char *path, const char *types,
                                  lo_arg **argv, int argc, lo_message data,
                                  void *user_data);
 
-static int handle_softcut_position(const char *path, const char *types,
-                                   lo_arg **argv, int argc, lo_message data,
-                                   void *user_data);
-
 static int handle_tape_play_state(const char *path, const char *types,
                                   lo_arg **argv, int argc, lo_message data,
                                   void *user_data);
@@ -218,8 +214,6 @@ void o_init(void) {
   // softcut buffer content
   lo_server_thread_add_method(st, "/softcut/buffer/render_callback", "iffb",
                               handle_softcut_render, NULL);
-  lo_server_thread_add_method(st, "/poll/softcut/position", "if",
-                              handle_softcut_position, NULL);
 
   lo_server_thread_start(st);
 }
@@ -586,7 +580,7 @@ void o_cut_buffer_render(int ch, float start, float dur, int samples) {
   crone_cut_buffer_render(ch, start, dur, samples);
 }
 
-void o_cut_query_position(int i) { crone_cut_query_position(i); }
+float o_cut_query_position(int i) { return crone_cut_query_position(i); }
 
 void o_cut_reset() { crone_cut_reset(); }
 
@@ -787,16 +781,6 @@ int handle_softcut_render(const char *path, const char *types, lo_arg **argv,
   ev->softcut_render.size = sz / sizeof(float);
   ev->softcut_render.data = (float *)calloc(1, sz);
   memcpy(ev->softcut_render.data, samples, sz);
-  event_post(ev);
-  return 0;
-}
-
-int handle_softcut_position(const char *path, const char *types, lo_arg **argv,
-                            int argc, lo_message data, void *user_data) {
-  assert(argc > 1);
-  union event_data *ev = event_data_new(EVENT_SOFTCUT_POSITION);
-  ev->softcut_position.idx = argv[0]->i;
-  ev->softcut_position.pos = argv[1]->f;
   event_post(ev);
   return 0;
 }

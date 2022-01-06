@@ -85,8 +85,6 @@ typedef enum {
     EVENT_CROW_EVENT,
     // softcut buffer content callback
     EVENT_SOFTCUT_RENDER,
-    // softcut position callback
-    EVENT_SOFTCUT_POSITION,
     // custom events defined in lua extensions
     EVENT_CUSTOM,
 } event_t;
@@ -320,12 +318,6 @@ struct event_softcut_render {
     float* data;
 };
 
-struct event_softcut_position {
-    struct event_common common;
-    int idx;
-    float pos;
-};
-
 // forward declaration to hide scripting layer dependencies
 struct event_custom_ops;
 
@@ -371,6 +363,5 @@ union event_data {
     struct event_crow_event crow_event;
     struct event_system_cmd system_cmd;
     struct event_softcut_render softcut_render;
-    struct event_softcut_position softcut_position;
     struct event_custom custom;
 };
