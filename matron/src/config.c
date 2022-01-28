@@ -1,3 +1,5 @@
+#include <emscripten.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,7 +9,7 @@
 #include <lualib.h>
 
 #include "lua_eval.h"
-#include "hardware/input.h"
+// #include "hardware/input.h"
 #include "hardware/io.h"
 #include "hardware/screen.h"
 
@@ -20,7 +22,7 @@ static inline void lua_register_func(lua_State *l, const char* name, lua_CFuncti
 
 static int _add_io(lua_State *l);
 
-int config_init(void) {
+int EMSCRIPTEN_KEEPALIVE config_init(void) {
     lua_State *l = config_lvm = luaL_newstate();
     luaL_openlibs(l);
     lua_pcall(l, 0, 0, 0);
@@ -52,7 +54,7 @@ int config_init(void) {
     return 0;
 }
 
-void config_deinit(void) {
+void EMSCRIPTEN_KEEPALIVE config_deinit(void) {
     io_destroy_all();
 }
 

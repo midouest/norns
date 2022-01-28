@@ -8,13 +8,11 @@
 #include <cairo.h>
 #include <cairo-ft.h>
 #include <fcntl.h>
-#include <linux/fb.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "args.h"
 #include "hardware/io.h"
 #include "hardware/screen.h"
 
