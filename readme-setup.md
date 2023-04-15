@@ -7,7 +7,7 @@
 these can be installed from the default Debian repositories: 
 
 ```
-sudo apt-get install libevdev-dev liblo-dev libudev-dev libcairo2-dev liblua5.3-dev libavahi-compat-libdnssd-dev libasound2-dev libncurses5-dev libncursesw5-dev libsndfile1-dev libjack-dev liboost-dev
+sudo apt-get install libevdev-dev liblo-dev libudev-dev libcairo2-dev liblua5.3-dev libavahi-compat-libdnssd-dev libasound2-dev libncurses5-dev libncursesw5-dev libsndfile1-dev libjack-dev libnanomsg-dev
 ```
 
 ### other packages / sources
@@ -27,7 +27,7 @@ for other platforms (x86, amd64), these packages can again use the standard repo
 sudo apt install libnanomsg-dev supercollider-language supercollider-server supercollider-dev
 ```
 
-and `libmonome` must be build and installed from source:
+and `libmonome` must be built and installed from source:
 
 - clone, build, and install:
 ```

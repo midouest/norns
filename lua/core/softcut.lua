@@ -13,6 +13,7 @@
 local SC = {}
 
 local controlspec = require 'core/controlspec'
+local clock = require 'clock'
 
 -------------------------------
 -- @section constants
@@ -108,10 +109,6 @@ SC.pre_level = function(voice,amp) _norns.cut_param("pre_level",voice,amp) end
 -- @tparam int voice : voice number (1-?)
 -- @tparam int state : off/on (0,1)
 SC.rec = function(voice,state) _norns.cut_param("rec_flag",voice,state) end
--- set to record one loop.
--- @tparam int voice : voice number (1-?)
--- @tparam float pos : position in seconds to initiate loop (optional). if omitted, then next cut will start
-SC.rec_once = function(src, pos) _norns.cut_param("rec_once",src,pos or -1) end
 --- set record head offset
 SC.rec_offset = function(voice,value) _norns.cut_param("rec_offset",voice,value) end
 --- set play position
@@ -384,10 +381,49 @@ SC.render_buffer = function(ch, start, dur, samples)
   _norns.cut_buffer_render(ch, start, dur, samples)
 end
 
+--- request that softcut process buffer with user-defined process function
+-- usage: clock.run(softcut.process_buffer(ch, start, dur, sleep_time, block_size))
+-- @tparam integer ch : buffer channel index (1-based)
+-- @tparam number start : beginning of region in seconds
+-- @tparam number dur : length of region in seconds
+-- @tparam number sleep_time : amount of time to wait between blocks in seconds; default 0.2
+-- @tparam integer block_size : number of samples per block; default 1024
+SC.process_buffer = function(ch, start, dur, sleep_time, block_size)
+  if not sleep_time or sleep_time < 0 then sleep_time = 0.2 end
+  if not block_size or block_size <= 0 then block_size = 1024 end
+  start = start or 0
+  dur = dur or -1
+  return function()
+    _norns.softcut_do_process = function() end
+     _norns.cut_buffer_process(ch, start, dur)
+    while true do
+      for i = 1, block_size do
+        if _norns.softcut_do_process() then goto done end
+      end
+      clock.sleep(sleep_time)
+    end
+    ::done::
+    _norns.cut_buffer_return(ch, start, dur)
+    _norns.softcut_do_process = function() end
+  end
+end
+
 --- set function for render callback. use render_buffer to request contents.
 -- @tparam function func : called when buffer content is ready. args: (ch, start, sec_per_sample, samples)
 SC.event_render = function(func)
   _norns.softcut_render = func
+end
+
+--- set function for processing of buffer. use process_buffer to apply.
+-- @tparam function func : called when buffer content is processed. args: (sample_index, current_value)
+SC.process_func = function(func)
+  _norns.softcut_process = func
+end
+
+--- set function for job callback. called when process_buffer is complete.
+-- @tparam function func : called when buffer job is complete. args: (ch, job_type, num_to_expect)
+SC.event_done = function(func)
+  _norns.softcut_done = func
 end
 
 --- query playback position
@@ -409,6 +445,14 @@ end
 function SC.reset()
    _norns.cut_reset()
   SC.event_phase(norns.none)
+  SC.event_render(norns.none)
+  SC.event_done(norns.none)
+  SC.process_func(function(_,_) return 0 end)
+  if _norns.cut_process_clock then
+    clock.cancel(_norns.cut_process_clock)
+    _norns.cut_process_clock = nil
+  end
+  _norns.softcut_do_process = function() end
 end
 
 --- get the default state of the softcut system
@@ -419,7 +463,7 @@ end
 -- NB: these values are synchronized by hand with those specified in the softcut cpp sources
 -- @treturn table table of parameter states for each voice
 function SC.defaults()
-   zeros = {}
+   local zeros = {}
 
    for i=1,SC.VOICE_COUNT do
       zeros[i] = 0
@@ -520,7 +564,6 @@ function SC.params()
       pre_filter_dry = { type="control", controlspec=controlspec.new(0, 1, 'lin', 0, 0, "") },
       -- post filter
       post_filter_fc = { type="control", controlspec=controlspec.new(10, 12000, 'exp', 1, 12000, "Hz") },
-      post_filter_fc_mod = { type="control", controlspec=controlspec.new(0, 1, 'lin', 0, 1, "") },
       post_filter_rq = { type="control", controlspec=controlspec.new(0.0005, 8.0, 'exp', 0, 2.0, "") },
       -- @fixme use dB / taper?
       post_filter_lp = { type="control", controlspec=controlspec.new(0, 1, 'lin', 0, 1, "") },

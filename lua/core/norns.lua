@@ -4,6 +4,8 @@
 -- external c functions are in the _norns table
 -- external callbacks in the norns table, which also includes management
 
+--- System utilities
+-- @module norns
 norns = {}
 
 -- local engine = require 'core/engine'
@@ -86,6 +88,9 @@ local util = require 'util'
 -- _norns.softcut_phase = function(id, value) end
 
 -- _norns.softcut_render = function(ch, start, sec_per_sample, samples) end
+-- _norns.softcut_process = function(sample_index, current_value) return 0 end
+-- _norns.softcut_do_process = function() end
+-- _norns.softcut_done = function(ch, job_type) end
 -- _norns.softcut_position = function(i,pos) end
 
 -- -- default readings for battery
@@ -94,7 +99,7 @@ local util = require 'util'
 
 -- -- battery percent handler
 -- _norns.battery = function(percent, current)
---   if current < 0 and percent < 5 then
+--   if current < 0 and percent < 5 and norns.state.battery_warning==1 then
 --     screen.update = screen.update_low_battery
 --   elseif current > 0 and norns.battery_current < 0 then
 --     screen.update = screen.update_default
@@ -123,7 +128,6 @@ local util = require 'util'
 --   norns.cpu[4] = cpu4
 -- end
 
-
 -- -- management
 -- norns.script = require 'core/script'
 -- norns.state = require 'core/state'
@@ -151,17 +155,14 @@ local util = require 'util'
 --   return status
 -- end
 
--- -- Null functions.
--- -- @section null
+--- do nothing.
+norns.none = function() end
 
--- -- do nothing.
--- norns.none = function() end
-
--- -- blank screen.
--- norns.blank = function()
---   _norns.screen_clear()
---   _norns.screen_update()
--- end
+--- draw a blank screen.
+norns.blank = function()
+  _norns.screen_clear()
+  _norns.screen_update()
+end
 
 
 -- -- Version
@@ -176,7 +177,7 @@ local util = require 'util'
 --   norns.version.update = "000000"
 -- end
 
--- -- shutdown
+-- --- shutdown
 -- norns.shutdown = function()
 --   hook.system_pre_shutdown()
 --   print("SLEEP")
@@ -189,20 +190,28 @@ local util = require 'util'
 --   os.execute("sleep 0.5; sudo shutdown now")
 -- end
 
--- -- platform detection
+-- --- platform detection
 -- -- 0 = UNKNOWN
 -- -- 1 = OTHER
 -- -- 2 = CM3 (norns)
 -- -- 3 = PI3 (norns shield)
 -- norns.platform = _norns.platform()
+
+-- --- true if we are running on norns (CM3)
 -- norns.is_norns = norns.platform == 2
+
+-- --- true if we are running on norns shield (PI3)
 -- norns.is_shield = norns.platform == 3
 
 -- -- Util (system_cmd)
 -- local system_cmd_q = {}
 -- local system_cmd_busy = false
 
--- -- add cmd to queue
+-- --- add cmd to queue
+-- -- @tparam string cmd shell command to execute
+-- -- @tparam ?func callback the callback will be called with the output of the
+-- -- command after it completes. if the callback is nil, then print the output
+-- -- instead.
 -- norns.system_cmd = function(cmd, callback)
 --   table.insert(system_cmd_q, {cmd=cmd, callback=callback})
 --   if system_cmd_busy == false then
@@ -223,6 +232,10 @@ local util = require 'util'
 --   end
 -- end
 
+-- --- find pathnames matching a pattern
+-- -- @function system_glob
+-- -- @tparam string pattern
+-- -- @treturn {string,...} a table of matching pathnames
 -- norns.system_glob = _norns.system_glob
 
 -- -- audio reset
@@ -243,7 +256,12 @@ end
 --   --  hook.system_post_startup()
 -- end
 
--- -- qol dev tools
+-- --- rerun the current script
 -- norns.rerun = function()
 --   norns.script.load(norns.state.script)
+-- end
+
+-- -- expand the filesystem after a fresh installation
+-- norns.expand_filesystem = function()
+--   os.execute('sudo raspi-config --expand-rootfs')
 -- end

@@ -38,6 +38,7 @@
 // #include "event_custom.h"
 // #include "hello.h"
 // #include "i2c.h"
+// #include "jack_client.h"
 #include "lua_eval.h"
 // #include "metro.h"
 // #include "oracle.h"
@@ -48,6 +49,10 @@
 // #include "system_cmd.h"
 #include "weaver.h"
 
+// for shared memory
+// #include <sys/mman.h>
+// #include <sys/stat.h>
+
 // registered lua functions require the LVM state as a parameter.
 // but often we don't need it.
 // use pragma instead of casting to void as a workaround.
@@ -57,6 +62,9 @@
 //------
 //---- global lua state!
 static lua_State *lvm;
+//-----
+//---- global shared memory file descriptor.
+// static int fd = -1;
 
 void EMSCRIPTEN_KEEPALIVE w_run_code(const char *code) {
     l_dostring(lvm, code, "w_run_code");
@@ -71,7 +79,7 @@ void EMSCRIPTEN_KEEPALIVE w_handle_exec_code_line(char *line) {
 //--- declare lua->c glue
 
 // NB these static functions are prefixed  with '_'
-// to avoid shadowing similar-named extern functions in other moduels (like
+// to avoid shadowing similar-named extern functions in other modules (like
 // screen)
 // and also to distinguish from extern 'w_' functions.
 
@@ -122,11 +130,40 @@ static int _screen_poke(lua_State *l);
 static int _screen_rotate(lua_State *l);
 static int _screen_translate(lua_State *l);
 static int _screen_set_operator(lua_State *l);
-// i2c
+
+// image
+typedef struct {
+    screen_surface_t *surface;
+    screen_context_t *context;
+    const screen_context_t *previous_context;
+    char *name;
+} _image_t;
+
+static luaL_Reg _image_methods[];
+static luaL_Reg _image_functions[];
+static const char *_image_class_name = "norns.image";
+
+static int _image_new(lua_State *l, screen_surface_t *surface, const char *name);
+static _image_t *_image_check(lua_State *l, int arg);
+static int _image_context_focus(lua_State *l);
+static int _image_context_defocus(lua_State *l);
+static int _image_free(lua_State *l);
+static int _image_equals(lua_State *l);
+static int _image_tostring(lua_State *l);
+static int _image_extents(lua_State *l);
+static int _image_name(lua_State *l);
+static int _screen_load_png(lua_State *l);
+static int _screen_create_image(lua_State *l);
+static int _screen_display_image(lua_State *l);
+static int _screen_display_image_region(lua_State *l);
+
+// // i2c
 // static int _gain_hp(lua_State *l);
+
 // // osc
 // static int _osc_send(lua_State *l);
 // static int _osc_send_crone(lua_State *l);
+
 // // midi
 // static int _midi_send(lua_State *l);
 
@@ -199,6 +236,9 @@ static int _screen_set_operator(lua_State *l);
 // static int _cut_buffer_write_mono(lua_State *l);
 // static int _cut_buffer_write_stereo(lua_State *l);
 // static int _cut_buffer_render(lua_State *l);
+// static int _cut_buffer_process(lua_State *l);
+// static int _cut_buffer_do_process(lua_State *l);
+// static int _cut_buffer_return(lua_State  *l);
 // static int _cut_query_position(lua_State *l);
 // static int _cut_reset(lua_State *l);
 // static int _set_cut_param(lua_State *l);
@@ -255,10 +295,14 @@ static int _screen_set_operator(lua_State *l);
 // static int _clock_get_time_beats(lua_State *l);
 // static int _clock_get_tempo(lua_State *l);
 
+// // audio performance
+// static int _audio_get_cpu_load(lua_State *l);
+// static int _audio_get_xrun_count(lua_State *l);
+
 // // platform detection (CM3 vs PI3 vs OTHER)
 // static int _platform(lua_State *l);
 
-// boilerplate: push a function to the stack, from field in global 'norns'
+// boilerplate: push a lua function to the lua stack, from named field in global 'norns'
 static inline void _push_norns_func(const char *field, const char *func) {
     // fprintf(stderr, "calling norns.%s.%s\n", field, func);
     lua_getglobal(lvm, "_norns");
@@ -268,12 +312,47 @@ static inline void _push_norns_func(const char *field, const char *func) {
     lua_remove(lvm, -2);
 }
 
-#define lua_register_norns(n, f) (lua_pushcfunction(lvm, f), lua_setfield(lvm, -2, n))
+// boilerplate: push a C function to the lua stack
+static inline void lua_register_norns(const char *name, int (*f)(lua_State *l)) {
+    lua_pushcfunction(lvm, f), lua_setfield(lvm, -2, name);
+}
+
+static void lua_register_norns_class(const char *class_name, const luaL_Reg *methods, const luaL_Reg *functions) {
+    // create the class metatable
+    luaL_newmetatable(lvm, class_name);
+    lua_pushstring(lvm, "__index");
+
+    // build the table which will become __index
+    lua_newtable(lvm);
+
+    // insert class name in __index to help debugging
+    lua_pushstring(lvm, "class");
+    lua_pushstring(lvm, class_name);
+    lua_rawset(lvm, -3);
+
+    // insert methods starting with __ in metatable, else __index table
+    for (const luaL_Reg *method = methods; method->name; method++) {
+        lua_pushstring(lvm, method->name);
+        lua_pushcfunction(lvm, method->func);
+        lua_rawset(lvm, strncmp("__", method->name, 2) == 0 ? -5 : -3);
+    }
+
+    // insert the built __index table into the metatable and pop the metatable
+    lua_rawset(lvm, -3);
+    lua_pop(lvm, 1);
+
+    // register any module level functions
+    for (const luaL_Reg *function = functions; function->name; function++) {
+        lua_register_norns(function->name, function->func);
+    }
+}
 
 ////////////////////////////////
 //// extern function definitions
 
 void EMSCRIPTEN_KEEPALIVE w_init(void) {
+    // fprintf(stderr,  "accessing shared memory");
+    // fd  = shm_open("BufDiskWorker_shm", O_RDWR, 0);
     fprintf(stderr, "starting main lua vm\n");
     lvm = luaL_newstate();
     luaL_openlibs(lvm);
@@ -344,6 +423,8 @@ void EMSCRIPTEN_KEEPALIVE w_init(void) {
     // lua_register_norns("cut_buffer_write_mono", &_cut_buffer_write_mono);
     // lua_register_norns("cut_buffer_write_stereo", &_cut_buffer_write_stereo);
     // lua_register_norns("cut_buffer_render", &_cut_buffer_render);
+    // lua_register_norns("cut_buffer_process", &_cut_buffer_process);
+    // lua_register_norns("cut_buffer_return", &_cut_buffer_return);
     // lua_register_norns("cut_query_position", &_cut_query_position);
     // lua_register_norns("cut_reset", &_cut_reset);
     // lua_register_norns("cut_param", &_set_cut_param);
@@ -405,7 +486,10 @@ void EMSCRIPTEN_KEEPALIVE w_init(void) {
     lua_register_norns("screen_translate", &_screen_translate);
     lua_register_norns("screen_set_operator", &_screen_set_operator);
 
-    // analog output control
+    // image
+    lua_register_norns_class(_image_class_name, _image_methods, _image_functions);
+
+//     // analog output control
 //     lua_register_norns("gain_hp", &_gain_hp);
 
 //     // osc
@@ -475,6 +559,9 @@ void EMSCRIPTEN_KEEPALIVE w_init(void) {
 //     lua_register_norns("clock_get_time_beats", &_clock_get_time_beats);
 //     lua_register_norns("clock_get_tempo", &_clock_get_tempo);
 
+//     lua_register_norns("audio_get_cpu_load", &_audio_get_cpu_load);
+//     lua_register_norns("audio_get_xrun_count", &_audio_get_xrun_count);
+
 //     // platform
 //     lua_register_norns("platform", &_platform);
 
@@ -509,6 +596,9 @@ void w_post_startup(void) {
 }
 
 void EMSCRIPTEN_KEEPALIVE w_deinit(void) {
+    // fprintf(stderr, "releasing shared memory");
+    // // don't love using magic words...
+    // shm_unlink("BufDiskWorker_shm");
     fprintf(stderr, "shutting down lua vm\n");
     lua_close(lvm);
 }
@@ -903,7 +993,7 @@ int _screen_display_png(lua_State *l) {
 /***
  * screen: peek
  * @function s_peek
- * @tparam integer x screen x position (0-127) 
+ * @tparam integer x screen x position (0-127)
  * @tparam integer y screen y position (0-63)
  * @tparam integer w rectangle width to grab
  * @tparam integer h rectangle height to grab
@@ -925,14 +1015,14 @@ int _screen_peek(lua_State *l) {
             free(buf);
             return 1;
         }
-    } 
+    }
     return 0;
 }
 
 /***
  * screen: poke
  * @function s_poke
- * @tparam integer x screen x position (0-127) 
+ * @tparam integer x screen x position (0-127)
  * @tparam integer y screen y position (0-63)
  * @tparam integer w rectangle width to replace
  * @tparam integer h rectangle height to replace
@@ -1003,6 +1093,217 @@ int _screen_set_operator(lua_State *l) {
     lua_settop(l, 0);
     return 0;
 }
+
+// clang-format off
+static luaL_Reg _image_methods[] = {
+    {"__gc", _image_free},
+    {"__tostring", _image_tostring},
+    {"__eq", _image_equals},
+    {"_context_focus", _image_context_focus},
+    {"_context_defocus", _image_context_defocus},
+    {"extents", _image_extents},
+    {"name", _image_name},
+    {NULL, NULL}
+};
+
+static luaL_Reg _image_functions[] = {
+    {"screen_load_png", _screen_load_png},
+    {"screen_create_image", _screen_create_image},
+    {"screen_display_image", _screen_display_image},
+    {"screen_display_image_region", _screen_display_image_region},
+    {NULL, NULL}
+};
+// clang-format on
+
+int _image_new(lua_State *l, screen_surface_t *surface, const char *name) {
+    _image_t *ud = (_image_t *)lua_newuserdata(l, sizeof(_image_t));
+    ud->surface = surface;
+    ud->context = NULL;
+    ud->previous_context = NULL;
+    if (name != NULL) {
+        ud->name = strdup(name);
+    } else {
+        ud->name = NULL;
+    }
+    luaL_getmetatable(l, _image_class_name);
+    lua_setmetatable(l, -2);
+    return 1;
+}
+
+int _image_context_focus(lua_State *l) {
+    _image_t *i = _image_check(l, 1);
+    if (i->context == NULL) {
+        // lazily allocate drawing context
+        i->context = screen_context_new(i->surface);
+        if (i->context == NULL) {
+            luaL_error(l, "unable to create drawing context");
+        }
+    }
+    i->previous_context = screen_context_get_current();
+    screen_context_set(i->context);
+    lua_settop(l, 0);
+    return 0;
+}
+
+static void __image_context_defocus(_image_t *i) {
+    if (i->previous_context != NULL) {
+        screen_context_set(i->previous_context);
+        i->previous_context = NULL;
+    } else {
+        screen_context_set_primary();
+    }
+}
+
+int _image_context_defocus(lua_State *l) {
+    __image_context_defocus(_image_check(l, 1));
+    lua_settop(l, 0);
+    return 0;
+}
+
+_image_t *_image_check(lua_State *l, int arg) {
+    void *ud = luaL_checkudata(l, arg, _image_class_name);
+    luaL_argcheck(l, ud != NULL, arg, "image object expected");
+    return (_image_t *)ud;
+}
+
+int _image_free(lua_State *l) {
+    _image_t *i = _image_check(l, 1);
+    // fprintf(stderr, "_image_free(%p): begin\n", i);
+    screen_surface_free(i->surface);
+    if (i->context != NULL) {
+        if (i->context == screen_context_get_current()) {
+            // automatically defocus ourselves if we are the current drawing target
+            // fprintf(stderr, "_image_free(%p): auto defocus\n", i);
+            __image_context_defocus(i);
+        }
+        screen_context_free(i->context);
+    }
+    if (i->name != NULL) {
+        free(i->name);
+    }
+    // fprintf(stderr, "_image_free(%p): end\n", i);
+    return 0;
+}
+
+int _image_tostring(lua_State *l) {
+    char repr[255];
+    _image_t *i = _image_check(l, 1);
+    if (i->name != NULL) {
+        snprintf(repr, sizeof(repr), "%s: %p (%s)", _image_class_name, i, i->name);
+    } else {
+        snprintf(repr, sizeof(repr), "%s: %p", _image_class_name, i);
+    }
+    lua_pushstring(l, repr);
+    return 1;
+}
+
+int _image_equals(lua_State *l) {
+    _image_t *a = _image_check(l, 2);
+    _image_t *b = _image_check(l, 1);
+    lua_pushboolean(l, a->surface == b->surface);
+    return 1;
+}
+
+int _image_extents(lua_State *l) {
+    screen_surface_extents_t extents;
+    _image_t *i = _image_check(l, 1);
+    if (screen_surface_get_extents(i->surface, &extents)) {
+        lua_pushinteger(l, extents.width);
+        lua_pushinteger(l, extents.height);
+        return 2;
+    }
+    return 0;
+}
+
+int _image_name(lua_State *l) {
+    _image_t *i = _image_check(l, 1);
+    if (i->name) {
+        lua_pushstring(l, i->name);
+        return 1;
+    }
+    return 0;
+}
+
+/***
+ * screen: create_image
+ * @function screen_create_imate
+ * @tparam number width image width
+ * @tparam number height image height
+ */
+int _screen_create_image(lua_State *l) {
+    lua_check_num_args(2);
+    double width = luaL_checknumber(l, 1);
+    double height = luaL_checknumber(l, 2);
+    if (width < 1 || height < 1) {
+        luaL_error(l, "image dimensions too small; must be >= 1");
+    }
+    screen_surface_t *s = screen_surface_new(width, height);
+    if (s != NULL) {
+        return _image_new(l, s, NULL);
+    }
+    luaL_error(l, "image creation failed");
+    return 0;
+}
+
+/***
+ * screen: load_png
+ * @function screen_load_png
+ * @tparam string string file path
+ */
+int _screen_load_png(lua_State *l) {
+    lua_check_num_args(1);
+    const char *name = luaL_checkstring(l, 1);
+    screen_surface_t *s = screen_surface_load_png(name);
+    if (s != NULL) {
+        return _image_new(l, s, name);
+    }
+    luaL_error(l, "image loading failed");
+    return 0;
+}
+
+/***
+ * screen: display_image
+ * @function screen_display_image
+ * @tparam image image object
+ * @tparam number x position
+ * @tparam number y position
+ */
+int _screen_display_image(lua_State *l) {
+    lua_check_num_args(3);
+    _image_t *i = _image_check(l, 1);
+    double x = luaL_checknumber(l, 2);
+    double y = luaL_checknumber(l, 3);
+    screen_surface_display(i->surface, x, y);
+    lua_settop(l, 0);
+    return 0;
+}
+
+/***
+ * screen: display_image_region
+ * @function screen_display_image_region
+ * @tparam image image object
+ * @tparam number left inset within image
+ * @tparam number top inset within image
+ * @tparam number width from right within image
+ * @tparam number height from top within image
+ * @tparam number x position
+ * @tparam number y position
+ */
+int _screen_display_image_region(lua_State *l) {
+    lua_check_num_args(7);
+    _image_t *i = _image_check(l, 1);
+    double left = luaL_checknumber(l, 2);
+    double top = luaL_checknumber(l, 3);
+    double width = luaL_checknumber(l, 4);
+    double height = luaL_checknumber(l, 5);
+    double x = luaL_checknumber(l, 6);
+    double y = luaL_checknumber(l, 7);
+    screen_surface_display_region(i->surface, left, top, width, height, x, y);
+    lua_settop(l, 0);
+    return 0;
+}
+
+
 
 /***
  * headphone: set level
@@ -1666,6 +1967,19 @@ int _screen_set_operator(lua_State *l) {
 //     return 1;
 // }
 
+// int _audio_get_cpu_load(lua_State *l) {
+//     lua_pushnumber(l, jack_client_get_cpu_load());
+//     return 1;
+// }
+
+// int _audio_get_xrun_count(lua_State *l) {
+//     lua_pushnumber(l, jack_client_get_xrun_count());
+//     return 1;
+// }
+
+// //--------------------------------------------------
+// //--- define lua handlers for system callbacks
+
 // void w_handle_monome_add(void *mdev) {
 //     struct dev_monome *md = (struct dev_monome *)mdev;
 //     int id = md->dev.id;
@@ -1745,7 +2059,8 @@ int _screen_set_operator(lua_State *l) {
 //     }
 
 //     lua_pushlightuserdata(lvm, dev);
-//     l_report(lvm, l_docall(lvm, 5, 0));
+//     lua_pushstring(lvm, dev->guid);
+//     l_report(lvm, l_docall(lvm, 6, 0));
 // }
 
 // void w_handle_hid_remove(int id) {
@@ -2139,6 +2454,40 @@ int _screen_set_operator(lua_State *l) {
 //     l_report(lvm, l_docall(lvm, 4, 0));
 // }
 
+// void w_handle_softcut_done_callback(int idx, int type) {
+//     lua_getglobal(lvm, "_norns");
+//     lua_getfield(lvm, -1, "softcut_done");
+//     lua_remove(lvm, -2);
+//     switch (type) {
+//         case 0 :
+//             lua_pushinteger(lvm, idx + 1);
+//             lua_pushstring(lvm, "process");
+//             break;
+//         default :
+//             luaL_error(lvm, "invalid job type");
+//     }
+//     l_report(lvm, l_docall(lvm, 2, 0));
+// }
+
+// void w_handle_softcut_process(size_t size) {
+//     if (fd == -1) {
+//         fprintf(stderr, "error accessing softcut shared memory");
+//         return;
+//     }
+//     void *BufDiskWorker_shm = mmap(NULL, size * sizeof(float), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+//     if (BufDiskWorker_shm == MAP_FAILED) {
+//         fprintf(stderr, "error mapping softcut shared memory");
+//         return;
+//     }
+//     lua_getglobal(lvm, "_norns");
+//     lua_pushlightuserdata(lvm, BufDiskWorker_shm);
+//     lua_pushinteger(lvm, size);
+//     lua_pushinteger(lvm, 0);
+//     lua_pushcclosure(lvm, &_cut_buffer_do_process, 3);
+//     lua_setfield(lvm, -2, "softcut_do_process");
+//     lua_pop(lvm, 1);
+// }
+
 // void w_handle_softcut_position(int idx, float pos) {
 //     lua_getglobal(lvm, "_norns");
 //     lua_getfield(lvm, -1, "softcut_position");
@@ -2494,6 +2843,52 @@ int _screen_set_operator(lua_State *l) {
 //     int samples = (int)luaL_checknumber(l, 4);
 //     o_cut_buffer_render(ch, start, dur, samples);
 //     return 0;
+// }
+
+// int _cut_buffer_process(lua_State *l) {
+//     lua_check_num_args(3);
+//     int ch = (int)luaL_checkinteger(l, 1) - 1;
+//     float start = (float)luaL_checknumber(l, 2);
+//     float dur = (float)luaL_checknumber(l, 3);
+//     o_cut_buffer_process(ch, start, dur);
+//     return 0;
+// }
+
+// int _cut_buffer_return(lua_State *l) {
+//     lua_check_num_args(3);
+//     int ch = (int)luaL_checkinteger(l,1) -1;
+//     float start = (float)luaL_checknumber(l, 2);
+//     float dur = (float)luaL_checknumber(l, 3);
+//     o_cut_buffer_return(ch, start, dur);
+//     return 0;
+// }
+
+// int _cut_buffer_do_process(lua_State *l) {
+//     float *shm_buffer = (float *)lua_topointer(l, lua_upvalueindex(1));
+//     size_t size = (size_t)lua_tointeger(l, lua_upvalueindex(2));
+//     size_t index = (size_t)lua_tointeger(l, lua_upvalueindex(3));
+//     if (index > size) {
+//         lua_pushboolean(l, 1);
+//         return 1;
+//     }
+//     lua_getglobal(l, "_norns");
+//     lua_getfield(l, -1, "softcut_process");
+//     lua_remove(l, -2);
+//     lua_pushinteger(l, index);
+//     lua_pushnumber(l, shm_buffer[index]);
+//     l_report(l, l_docall(l, 2, 1));
+//     if (!lua_isnumber(l, -1)) {
+//         fprintf(stderr, "softcut_process did not return number for input %d, %f", (int)index, shm_buffer[index]);
+//         shm_buffer[index] = 0;
+//     } else {
+//         shm_buffer[index] = (float)lua_tonumber(l, -1);
+//     }
+//     lua_pop(l, 1);
+//     index++;
+//     lua_pushinteger(l, index);
+//     lua_replace(l, lua_upvalueindex(3));
+//     lua_pushnil(l);
+//     return 1;
 // }
 
 // int _cut_query_position(lua_State *l) {

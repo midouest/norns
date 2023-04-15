@@ -119,21 +119,21 @@ Screen.circle = function(x, y, r) _norns.screen_circle(x, y, r) end
 Screen.rect = function(x, y, w, h) _norns.screen_rect(x, y, w, h) end
 
 --- draw curve (cubic Bézier spline).
--- @tparam number x1 destination x
--- @tparam number y1 destination y
--- @tparam number x2 handle 1 x
--- @tparam number y2 handle 1 y
--- @tparam number x3 handle 2 x
--- @tparam number y3 handle 2 y
+-- @tparam number x1 handle 1 x
+-- @tparam number y1 handle 1 y
+-- @tparam number x2 handle 2 x
+-- @tparam number y2 handle 2 y
+-- @tparam number x3 destination x
+-- @tparam number y3 destination y
 Screen.curve = function(x1, y1, x2, y2, x3, y3) _norns.screen_curve(x1, y1, x2, y2, x3, y3) end
 
 --- draw curve (cubic Bézier spline) relative coordinates.
--- @tparam number x1 relative destination x
--- @tparam number y1 relative destination y
--- @tparam number x2 handle 1 x
--- @tparam number y2 handle 1 y
--- @tparam number x3 handle 2 x
--- @tparam number y3 handle 2 y
+-- @tparam number x1 handle 1 x
+-- @tparam number y1 handle 1 y
+-- @tparam number x2 handle 2 x
+-- @tparam number y2 handle 2 y
+-- @tparam number x3 relative destination x
+-- @tparam number y3 relative destination y
 Screen.curve_rel = function(x1, y1, x2, y2, x3, y3) _norns.screen_curve_rel(x1, y1, x2, y2, x3, y3) end
 
 --- close current path.
@@ -141,10 +141,16 @@ Screen.close = function() _norns.screen_close() end
 
 --- stroke current path.
 -- uses currently selected color.
+-- after this call the current path will be cleared, so the 'relative' functions
+-- (`move_rel`, `line_rel` and `curve_rel`) won't work - use their absolute
+-- alternatives instead.
 Screen.stroke = function() _norns.screen_stroke() end
 
 --- fill current path.
 -- uses currently selected color.
+-- after this call the current path will be cleared, so the 'relative' functions
+-- (`move_rel`, `line_rel` and `curve_rel`) won't work - use their absolute
+-- alternatives instead.
 Screen.fill = function() _norns.screen_fill() end
 
 --- draw text (left aligned).
@@ -303,11 +309,52 @@ _norns.screen_circle = function(x, y, r)
   _norns.screen_arc(x, y, r, 0, math.pi*2)
 end
 
---- display png.
+--- export png
+-- @param filename: saved to dust/data/(script)/(filename).png
+Screen.export_png = function(filename) _norns.screen_export_png(norns.state.data..filename..'.png') end
+
+--- display png
 -- @param filename
 -- @tparam number x x position
 -- @tparam number y y position
-Screen.display_png = function(filename,x,y) _norns.screen_display_png(filename,x,y) end
+Screen.display_png = function(filename, x, y) _norns.screen_display_png(filename, x, y) end
+
+--- load png into an image buffer
+-- @param filename
+Screen.load_png = function(filename) return _norns.screen_load_png(filename) end
+
+--- create an image buffer
+-- @tparam number width image witdth
+-- @tparam number height image height
+Screen.create_image = function(width, height) return _norns.screen_create_image(width, height) end
+
+--- display image buffer
+-- @param image
+-- @tparam number x x position
+-- @tparam number y y position
+Screen.display_image = function(image, x, y) _norns.screen_display_image(image, x, y) end
+
+--- display sub-region image buffer
+-- @param image
+-- @tparam number left left inset within image
+-- @tparam number top top inset within image
+-- @tparam number width width from right within image
+-- @tparam number height height from top within image
+-- @tparam number x x position
+-- @tparam number y y position
+Screen.display_image_region = function(image, left, top, width, height, x, y)
+  _norns.screen_display_image_region(image, left, top, width, height, x, y)
+end
+
+--- direct screen drawing within the provide function into the image instead of the screen
+-- @tparam image image the image to draw into
+-- @tparam function func function called to perform drawing
+Screen.draw_to = function(image, func)
+  image:_context_focus()
+  local ok, result = pcall(func)
+  image:_context_defocus()
+  if not ok then print(result) else return result end
+end
 
 --- get a rectangle of screen content. returned buffer contains one byte (valued 0 - 15) per pixel, i.e. w * h bytes
 -- @tparam number x x position
