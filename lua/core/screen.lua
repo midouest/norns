@@ -4,32 +4,36 @@
 
 local Screen = {}
 
--- local metro = require 'core/metro'
--- local screensaver = metro[36]
+if false then
+local metro = require 'core/metro'
+local screensaver = metro[36]
 
--- local sleeping = false
+local sleeping = false
 
--- screensaver.event = function()
---   _norns.screen_clear()
---   _norns.screen_update()
---   sleeping = true
---   Screen.update = function() end
--- end
--- screensaver.time = 900
--- screensaver.count = 1
+screensaver.event = function()
+  _norns.screen_clear()
+  _norns.screen_update()
+  sleeping = true
+  Screen.update = function() end
+end
+screensaver.time = 900
+screensaver.count = 1
+end
 
 --- copy buffer to screen.
 Screen.update_default = function()
   _norns.screen_update()
 end
 
+if false then
 --- restart screen saver timer
--- Screen.ping = function()
---   screensaver:start()
---   if sleeping == true then
---     Screen.update = Screen.update_default
---   end
--- end
+Screen.ping = function()
+  screensaver:start()
+  if sleeping == true then
+    Screen.update = Screen.update_default
+  end
+end
+end
 
 --- low battery screen update
 Screen.update_low_battery = function()

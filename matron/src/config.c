@@ -9,7 +9,9 @@
 #include <lualib.h>
 
 #include "lua_eval.h"
-// #include "hardware/input.h"
+#ifndef EMSCRIPTEN
+#include "hardware/input.h"
+#endif
 #include "hardware/io.h"
 #include "hardware/screen.h"
 

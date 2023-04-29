@@ -8,14 +8,18 @@
 #include <cairo.h>
 #include <cairo-ft.h>
 #include <fcntl.h>
-// #include <linux/fb.h>
+#ifndef EMSCRIPTEN
+#include <linux/fb.h>
+#endif
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// #include "args.h"
+#ifndef EMSCRIPTEN
+#include "args.h"
+#endif
 #include "hardware/io.h"
 #include "hardware/screen.h"
 
@@ -399,7 +403,7 @@ extern void screen_export_png(const char *s) {
     static cairo_surface_t *png;
     static cairo_t *temp; // for bg fill
     // width = 640 (128*4 pixels with 64 pixel black border)
-    // hieght = 384 (64*4 pixels plus border)
+    // hieght = 384 (64*4 pixels plus border) 
     png = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 640, 384);
     temp = cairo_create(png);
     // fill

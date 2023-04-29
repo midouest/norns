@@ -5,17 +5,21 @@
 
 #include "hardware/io.h"
 #include "hardware/screen/screens.h"
-// #include "hardware/input/inputs.h"
+#ifndef EMSCRIPTEN
+#include "hardware/input/inputs.h"
+#endif
 
 io_ops_t* io_types[] = {
-    // (io_ops_t*)&screen_fbdev_ops,
-    // (io_ops_t*)&enc_gpio_ops,
-    // (io_ops_t*)&key_gpio_ops,
+#ifndef EMSCRIPTEN
+    (io_ops_t*)&screen_fbdev_ops,
+    (io_ops_t*)&enc_gpio_ops,
+    (io_ops_t*)&key_gpio_ops,
 
-// #ifdef NORNS_DESKTOP
-//     (io_ops_t*)&screen_sdl_ops,
-//     (io_ops_t*)&input_sdl_ops,
-// #endif
+#ifdef NORNS_DESKTOP
+    (io_ops_t*)&screen_sdl_ops,
+    (io_ops_t*)&input_sdl_ops,
+#endif
+#endif
     (io_ops_t*)&screen_static_ops,
     (io_ops_t*)NULL,
 };
