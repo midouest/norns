@@ -130,7 +130,7 @@ local util = require 'util'
 
 -- -- management
 -- norns.script = require 'core/script'
--- norns.state = require 'core/state'
+norns.state = require 'core/state'
 -- norns.encoders = require 'core/encoders'
 
 -- _norns.enc = norns.encoders.process
