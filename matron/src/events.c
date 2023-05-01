@@ -8,11 +8,15 @@
 
 #include <pthread.h>
 
+#ifndef EMSCRIPTEN
 #include "battery.h"
 #include "device_monome.h"
+#endif
 #include "events.h"
+#ifndef EMSCRIPTEN
 #include "oracle.h"
 #include "stat.h"
+#endif
 #include "weaver.h"
 
 #include "event_types.h"
@@ -118,6 +122,7 @@ MATRON_API void event_data_free(union event_data *ev) {
     case EVENT_EXEC_CODE_LINE:
         free(ev->exec_code_line.line);
         break;
+#ifndef EMSCRIPTEN
     case EVENT_OSC:
         free(ev->osc_event.path);
         free(ev->osc_event.from_host);
@@ -136,6 +141,7 @@ MATRON_API void event_data_free(union event_data *ev) {
     case EVENT_SOFTCUT_RENDER:
         free(ev->softcut_render.data);
         break;
+#endif
     case EVENT_CUSTOM:
         if (ev->custom.ops->free) {
             ev->custom.ops->free(ev->custom.value, ev->custom.context);
@@ -193,6 +199,7 @@ static void handle_event(union event_data *ev) {
     case EVENT_METRO:
         w_handle_metro(ev->metro.id, ev->metro.stage);
         break;
+#ifndef EMSCRIPTEN
     case EVENT_CLOCK_RESUME:
         w_handle_clock_resume(ev->clock_resume.thread_id, ev->clock_resume.value);
         break;
@@ -202,12 +209,14 @@ static void handle_event(union event_data *ev) {
     case EVENT_CLOCK_STOP:
         w_handle_clock_stop();
         break;
+#endif
     case EVENT_KEY:
         w_handle_key(ev->key.n, ev->key.val);
         break;
     case EVENT_ENC:
         w_handle_enc(ev->enc.n, ev->enc.delta);
         break;
+#ifndef EMSCRIPTEN
     case EVENT_BATTERY:
         w_handle_battery(ev->battery.percent, ev->battery.current);
         break;
@@ -290,12 +299,14 @@ static void handle_event(union event_data *ev) {
     case EVENT_SYSTEM_CMD:
         w_handle_system_cmd(ev->system_cmd.capture);
         break;
+#endif
     case EVENT_RESET_LVM:
         w_reset_lvm();
         break;
     case EVENT_QUIT:
         quit = true;
         break;
+#ifndef EMSCRIPTEN
     case EVENT_CROW_ADD:
         w_handle_crow_add(ev->crow_add.dev);
         break;
@@ -311,6 +322,7 @@ static void handle_event(union event_data *ev) {
     case EVENT_SOFTCUT_POSITION:
         w_handle_softcut_position(ev->softcut_position.idx, ev->softcut_position.pos);
         break;
+#endif
     case EVENT_CUSTOM:
         w_handle_custom_weave(&(ev->custom));
         break;
@@ -324,11 +336,13 @@ static void handle_event(union event_data *ev) {
 
 //--- reports
 void handle_engine_report(void) {
+#ifndef EMSCRIPTEN
     o_lock_descriptors();
     const char **p = o_get_engine_names();
     const int n = o_get_num_engines();
     w_handle_engine_report(p, n);
     o_unlock_descriptors();
+#endif
 }
 
 void event_handle_pending(void) {

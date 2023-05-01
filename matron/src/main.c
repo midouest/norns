@@ -2,17 +2,22 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef EMSCRIPTEN
 #include <sys/wait.h>
+#endif
 #include <unistd.h>
 
 #include "args.h"
+#ifndef EMSCRIPTEN
 #include "battery.h"
 #include "clock.h"
 #include "clocks/clock_crow.h"
 #include "clocks/clock_internal.h"
 #include "clocks/clock_link.h"
 #include "clocks/clock_midi.h"
+#endif
 #include "config.h"
+#ifndef EMSCRIPTEN
 #include "clocks/clock_scheduler.h"
 #include "device.h"
 #include "device_hid.h"
@@ -20,23 +25,31 @@
 #include "device_midi.h"
 #include "device_monitor.h"
 #include "device_monome.h"
+#endif
 #include "events.h"
+#ifndef EMSCRIPTEN
 #include "hello.h"
 #include "i2c.h"
 #include "input.h"
 #include "jack_client.h"
 #include "metro.h"
 #include "osc.h"
+#endif
 #include "platform.h"
+#ifndef EMSCRIPTEN
 #include "screen.h"
 #include "stat.h"
+#endif
 
+#ifndef EMSCRIPTEN
 #include "oracle.h"
 #include "weaver.h"
+#endif
 
 void print_version(void);
 
 void cleanup(void) {
+#ifndef EMSCRIPTEN
     dev_monitor_deinit();
     osc_deinit();
     o_deinit();
@@ -49,6 +62,7 @@ void cleanup(void) {
     jack_client_deinit();
     fprintf(stderr, "matron shutdown complete\n");
     exit(0);
+#endif
 }
 
 int main(int argc, char **argv) {
@@ -58,6 +72,7 @@ int main(int argc, char **argv) {
     init_platform();
     printf("platform: %d\n",platform());
 
+#ifndef EMSCRIPTEN
     events_init(); // <-- must come first!
     if (config_init()) {
         fprintf(stderr, "configuration failed\n");
@@ -121,6 +136,7 @@ int main(int argc, char **argv) {
     
     // blocks until quit
     event_loop();
+#endif
 }
 
 void print_version(void) {

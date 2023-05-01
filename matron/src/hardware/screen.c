@@ -8,7 +8,9 @@
 #include <cairo.h>
 #include <cairo-ft.h>
 #include <fcntl.h>
+#ifndef EMSCRIPTEN
 #include <linux/fb.h>
+#endif
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>

@@ -1,7 +1,9 @@
 #pragma once
 
+#ifndef EMSCRIPTEN
 #include "oracle.h"
 #include "osc.h"
+#endif
 #include <stdint.h>
 
 // NOTE: new event types *must* be added to the end of the enum in the order
@@ -114,6 +116,7 @@ struct event_exec_code_line {
     char *line;
 }; // +4
 
+#ifndef EMSCRIPTEN
 struct event_monome_add {
     struct event_common common;
     void *dev;
@@ -198,6 +201,7 @@ struct event_osc {
     char *from_port;
     lo_message msg;
 }; // +16?
+#endif
 
 struct event_metro {
     struct event_common common;
@@ -205,6 +209,7 @@ struct event_metro {
     uint32_t stage;
 }; // +8
 
+#ifndef EMSCRIPTEN
 struct event_clock_resume {
     struct event_common common;
     uint32_t thread_id;
@@ -218,6 +223,7 @@ struct event_clock_start {
 struct event_clock_stop {
     struct event_common common;
 };
+#endif
 
 struct event_key {
     struct event_common common;
@@ -225,6 +231,7 @@ struct event_key {
     uint8_t val;
 }; // +2
 
+#ifndef EMSCRIPTEN
 struct event_battery {
     struct event_common common;
     uint8_t percent;
@@ -246,6 +253,7 @@ struct event_stat {
     uint8_t cpu3;
     uint8_t cpu4;
 };
+#endif
 
 struct event_enc {
     struct event_common common;
@@ -253,6 +261,7 @@ struct event_enc {
     int8_t delta;
 }; // +2
 
+#ifndef EMSCRIPTEN
 struct event_poll_value {
     struct event_common common;
     uint32_t idx;
@@ -320,7 +329,7 @@ struct event_softcut_render {
     float sec_per_sample;
     float start;
     size_t size;
-    float* data;
+    float *data;
 };
 
 struct event_softcut_position {
@@ -328,6 +337,7 @@ struct event_softcut_position {
     int idx;
     float pos;
 };
+#endif
 
 // forward declaration to hide scripting layer dependencies
 struct event_custom_ops;
@@ -342,6 +352,7 @@ struct event_custom {
 union event_data {
     uint32_t type;
     struct event_exec_code_line exec_code_line;
+#ifndef EMSCRIPTEN
     struct event_monome_add monome_add;
     struct event_monome_remove monome_remove;
     struct event_grid_key grid_key;
@@ -355,12 +366,16 @@ union event_data {
     struct event_midi_remove midi_remove;
     struct event_midi_event midi_event;
     struct event_osc osc_event;
+#endif
     struct event_key key;
     struct event_enc enc;
+#ifndef EMSCRIPTEN
     struct event_battery battery;
     struct event_power power;
     struct event_stat stat;
+#endif
     struct event_metro metro;
+#ifndef EMSCRIPTEN
     struct event_clock_resume clock_resume;
     struct event_poll_value poll_value;
     struct event_poll_data poll_data;
@@ -375,5 +390,6 @@ union event_data {
     struct event_system_cmd system_cmd;
     struct event_softcut_render softcut_render;
     struct event_softcut_position softcut_position;
+#endif
     struct event_custom custom;
 };

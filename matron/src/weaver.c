@@ -14,7 +14,9 @@
 #include <glob.h>
 #include <pthread.h>
 #include <signal.h>
+#ifndef EMSCRIPTEN
 #include <sys/time.h>
+#endif
 #include <unistd.h>
 
 // lua
@@ -22,6 +24,7 @@
 #include <lua.h>
 #include <lualib.h>
 
+#ifndef EMSCRIPTEN
 // norns
 #include "clock.h"
 #include "clocks/clock_crow.h"
@@ -32,19 +35,26 @@
 #include "device_hid.h"
 #include "device_midi.h"
 #include "device_monome.h"
+#endif
 #include "events.h"
 #include "event_custom.h"
+#ifndef EMSCRIPTEN
 #include "hello.h"
 #include "i2c.h"
 #include "jack_client.h"
+#endif
 #include "lua_eval.h"
 #include "metro.h"
+#ifndef EMSCRIPTEN
 #include "oracle.h"
 #include "osc.h"
+#endif
 #include "platform.h"
 #include "screen.h"
+#ifndef EMSCRIPTEN
 #include "snd_file.h"
 #include "system_cmd.h"
+#endif
 #include "weaver.h"
 
 // registered lua functions require the LVM state as a parameter.

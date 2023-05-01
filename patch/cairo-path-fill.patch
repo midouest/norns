@@ -1,0 +1,12 @@
+72a73,79
+> _cairo_filler_line_to_adapter (void *closure,
+> 		       const cairo_point_t *point,
+> 			   const cairo_slope_t *tangent) {
+>     return _cairo_filler_line_to(closure, point);
+> }
+> 
+> static cairo_status_t
+116c123
+< 			      (cairo_spline_add_point_func_t)_cairo_filler_line_to, filler,
+---
+> 			      _cairo_filler_line_to_adapter, filler,

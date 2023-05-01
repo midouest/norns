@@ -3,6 +3,7 @@
 #include <cairo.h>
 #include <lualib.h>
 #include <sys/queue.h>
+#include <pthread.h>
 
 typedef enum _matron_io_type {
   IO_SCREEN,

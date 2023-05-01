@@ -1,7 +1,9 @@
 #pragma once
 
+#ifndef EMSCRIPTEN
 #include "device_hid.h"
 #include "oracle.h"
+#endif
 #include "event_types.h"
 
 // initialize the lua VM and run setup scripts
@@ -30,6 +32,7 @@ extern void w_reset_lvm();
 //---- c -> lua glue
 
 //--- hardware input
+#ifndef EMSCRIPTEN
 extern void w_handle_monome_add(void *dev);
 extern void w_handle_monome_remove(int id);
 extern void w_handle_grid_key(int id, int x, int y, int state);
@@ -58,22 +61,26 @@ extern void w_handle_engine_report(const char **arr, const int num);
 /* extern void w_handle_poll_report(const struct engine_poll *arr, */
 /*                                  const int num); */
 extern void w_handle_engine_load_done();
+#endif
 
 //--- gpio handler
 extern void w_handle_key(const int n, const int val);
 extern void w_handle_enc(const int n, const int delta);
 
+#ifndef EMSCRIPTEN
 //--- system/battery
 extern void w_handle_battery(const int percent, const int current);
 extern void w_handle_power(const int present);
 
 //--- system/stat
-extern void w_handle_stat(const uint32_t disk, const uint16_t temp, const uint16_t cpu,
-    const uint16_t cpu1, const uint16_t cpu2, const uint16_t cpu3, const uint16_t cpu4);
+extern void w_handle_stat(const uint32_t disk, const uint16_t temp, const uint16_t cpu, const uint16_t cpu1,
+                          const uint16_t cpu2, const uint16_t cpu3, const uint16_t cpu4);
+#endif
 
 //--- metro bang handler
 extern void w_handle_metro(const int idx, const int stage);
 
+#ifndef EMSCRIPTEN
 //--- clock
 extern void w_handle_clock_resume(const int thread_id, double value);
 extern void w_handle_clock_start();
@@ -85,7 +92,7 @@ extern void w_handle_poll_data(int idx, int size, uint8_t *data);
 extern void w_handle_poll_wave(int idx, uint8_t *data);
 extern void w_handle_poll_io_levels(uint8_t *levels);
 extern void w_handle_poll_softcut_phase(int idx, float val);
-extern void w_handle_softcut_render(int idx, float sec_per_sample, float start, size_t size, float* data);
+extern void w_handle_softcut_render(int idx, float sec_per_sample, float start, size_t size, float *data);
 extern void w_handle_softcut_position(int idx, float pos);
 
 extern void w_handle_engine_loaded();
@@ -96,6 +103,7 @@ extern void w_handle_startup_ready_timeout();
 
 // util callbacks
 extern void w_handle_system_cmd();
+#endif
 
 // custom events
 extern void w_handle_custom_weave(struct event_custom *ev);
