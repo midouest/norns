@@ -32,8 +32,9 @@
 #include "device_hid.h"
 #include "device_midi.h"
 #include "device_monome.h"
-#include "events.h"
+#include "device_playdate.h"
 #include "event_custom.h"
+#include "events.h"
 #include "hello.h"
 #include "i2c.h"
 #include "jack_client.h"
@@ -174,6 +175,12 @@ static int _midi_clock_receive(lua_State *l);
 
 // crow
 static int _crow_send(lua_State *l);
+
+// playdate
+static int _playdate_run(lua_State *l);
+static int _playdate_send(lua_State *l);
+static int _playdate_controller_start(lua_State *l);
+static int _playdate_controller_stop(lua_State *l);
 
 // crone
 /// engines
@@ -434,6 +441,12 @@ void w_init(void) {
 
     // crow
     lua_register_norns("crow_send", &_crow_send);
+
+    // playdate
+    lua_register_norns("playdate_run", &_playdate_run);
+    lua_register_norns("playdate_send", &_playdate_send);
+    lua_register_norns("playdate_controller_start", &_playdate_controller_start);
+    lua_register_norns("playdate_controller_stop", &_playdate_controller_stop);
 
     // util
     lua_register_norns("system_cmd", &_system_cmd);
@@ -1639,6 +1652,62 @@ int _crow_send(lua_State *l) {
     return 0;
 }
 
+int _playdate_run(lua_State *l) {
+    lua_check_num_args(2);
+    struct dev_playdate *d;
+    const char *s;
+
+    luaL_checktype(l, 1, LUA_TLIGHTUSERDATA);
+    d = lua_touserdata(l, 1);
+    s = luaL_checkstring(l, 2);
+    lua_settop(l, 0);
+
+    dev_playdate_run(d, s);
+
+    return 0;
+}
+
+int _playdate_send(lua_State *l) {
+    lua_check_num_args(2);
+    struct dev_playdate *d;
+    const char *s;
+
+    luaL_checktype(l, 1, LUA_TLIGHTUSERDATA);
+    d = lua_touserdata(l, 1);
+    s = luaL_checkstring(l, 2);
+    lua_settop(l, 0);
+
+    dev_playdate_send(d, s);
+
+    return 0;
+}
+
+int _playdate_controller_start(lua_State *l) {
+    lua_check_num_args(1);
+    struct dev_playdate *d;
+
+    luaL_checktype(l, 1, LUA_TLIGHTUSERDATA);
+    d = lua_touserdata(l, 1);
+    lua_settop(l, 0);
+
+    dev_playdate_controller_start(d);
+
+    return 0;
+}
+
+int _playdate_controller_stop(lua_State *l) {
+    lua_check_num_args(1);
+    struct dev_playdate *d;
+
+    luaL_checktype(l, 1, LUA_TLIGHTUSERDATA);
+    d = lua_touserdata(l, 1);
+    lua_settop(l, 0);
+
+    dev_playdate_controller_stop(d);
+
+    return 0;
+}
+
 /***
  * midi: send
  * @function midi_send
@@ -2284,6 +2353,32 @@ void w_handle_crow_remove(int id) {
 void w_handle_crow_event(void *dev, int id) {
     struct dev_crow *d = (struct dev_crow *)dev;
     _push_norns_func("crow", "event");
+    lua_pushinteger(lvm, id + 1); // convert to 1-base
+    lua_pushstring(lvm, d->line);
+    l_report(lvm, l_docall(lvm, 2, 0));
+}
+
+void w_handle_playdate_add(void *p) {
+    struct dev_playdate *dev = (struct dev_playdate *)p;
+    struct dev_common *base = (struct dev_common *)p;
+    int id = base->id;
+
+    _push_norns_func("playdate", "add");
+    lua_pushinteger(lvm, id + 1); // convert to 1-base
+    lua_pushstring(lvm, base->name);
+    lua_pushlightuserdata(lvm, dev);
+    l_report(lvm, l_docall(lvm, 3, 0));
+}
+
+void w_handle_playdate_remove(int id) {
+    _push_norns_func("playdate", "remove");
+    lua_pushinteger(lvm, id + 1); // convert to 1-base
+    l_report(lvm, l_docall(lvm, 1, 0));
+}
+
+void w_handle_playdate_event(void *dev, int id) {
+    struct dev_playdate *d = (struct dev_playdate *)dev;
+    _push_norns_func("playdate", "event");
     lua_pushinteger(lvm, id + 1); // convert to 1-base
     lua_pushstring(lvm, d->line);
     l_report(lvm, l_docall(lvm, 2, 0));

@@ -306,6 +306,15 @@ static void handle_event(union event_data *ev) {
     case EVENT_SCREEN_REFRESH:
         w_handle_screen_refresh();
         break;
+    case EVENT_PLAYDATE_ADD:
+        w_handle_playdate_add(ev->playdate_add.dev);
+        break;
+    case EVENT_PLAYDATE_REMOVE:
+        w_handle_playdate_remove(ev->playdate_remove.id);
+        break;
+    case EVENT_PLAYDATE_EVENT:
+        w_handle_playdate_event(ev->playdate_event.dev, ev->playdate_event.id);
+        break;
     } /* switch */
 
     event_data_free(ev);

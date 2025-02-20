@@ -89,6 +89,7 @@ Script.clear = function()
 
   -- clear crow functions
   norns.crow.init()
+  playdate.init()
 
   -- clear HID device handlers
   keyboard.clear()

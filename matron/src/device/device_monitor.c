@@ -60,6 +60,7 @@ static void add_dev_sound(struct udev_device *dev);
 
 static int is_dev_monome_grid(struct udev_device *dev);
 static int is_dev_crow(struct udev_device *dev);
+static int is_dev_playdate(struct udev_device *dev);
 
 static void *watch_loop(void *data);
 
@@ -245,7 +246,12 @@ void rm_dev_tty(struct udev_device *dev, const char *node) {
         dev_list_remove(DEV_TYPE_CROW, node);
         return;
     }
-    
+
+    if (is_dev_playdate(dev)) {
+        dev_list_remove(DEV_TYPE_PLAYDATE, node);
+        return;
+    }
+
     fprintf(stderr, "dev_monitor: unmatched TTY device was removed from %s\n", node);
 
 }
@@ -283,6 +289,9 @@ void add_dev_tty(struct udev_device *dev) {
     } else if (is_dev_crow(dev)) {
         fprintf(stderr, "tty is a crow\n");
         dev_list_add(DEV_TYPE_CROW, node, name);
+    } else if (is_dev_playdate(dev)) {
+        fprintf(stderr, "tty is a playdate\n");
+        dev_list_add(DEV_TYPE_PLAYDATE, node, name);
     } else {
         fprintf(stderr, "dev_monitor: unmatched TTY device %s at %s\n", name, node);
     }
@@ -389,4 +398,14 @@ int is_dev_crow(struct udev_device *dev) {
         return strcmp(device_product_string, "crow:_telephone_line") == 0;
     }
    return 0;
+}
+
+int is_dev_playdate(struct udev_device *dev) {
+    const char *vendor, *model;
+    vendor = udev_device_get_property_value(dev, "ID_VENDOR");
+    model = udev_device_get_property_value(dev, "ID_MODEL");
+    if (vendor != NULL && model != NULL) {
+        return strcmp(vendor, "Panic_Inc") == 0 && strcmp(model, "Playdate") == 0;
+    }
+    return 0l;
 }

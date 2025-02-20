@@ -15,6 +15,7 @@ crow = require 'core/crow'
 grid = require 'core/grid'
 arc = require 'core/arc'
 hid = require 'core/hid'
+playdate = require 'core/playdate'
 metro = require 'core/metro'
 clock = require "core/clock"
 midi = require 'core/midi'

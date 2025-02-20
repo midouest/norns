@@ -6,6 +6,7 @@
 #include "device_hid.h"
 #include "device_midi.h"
 #include "device_monome.h"
+#include "device_playdate.h"
 #include <pthread.h>
 #include <stdint.h>
 
@@ -16,6 +17,7 @@ union dev {
     struct dev_hid hid;
     struct dev_midi midi;
     struct dev_crow crow;
+    struct dev_playdate playdate;
 };
 
 // initialize device registry

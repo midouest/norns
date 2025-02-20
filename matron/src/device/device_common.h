@@ -13,6 +13,8 @@ typedef enum {
     DEV_TYPE_CROW = 3,
     // place all virtual devices (devices without device files to monitor) below
     DEV_TYPE_MIDI_VIRTUAL = 4,
+    // Panic Inc. Playdate
+    DEV_TYPE_PLAYDATE = 5,
     // counter - unused, don't remove
     DEV_TYPE_COUNT,
     DEV_TYPE_INVALID

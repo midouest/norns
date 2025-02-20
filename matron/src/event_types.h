@@ -94,6 +94,12 @@ typedef enum {
     EVENT_GRID_TILT,
     // screen asynchronous results callbacks
     EVENT_SCREEN_REFRESH,
+    // Playdate connected
+    EVENT_PLAYDATE_ADD,
+    // Playdate disconnected
+    EVENT_PLAYDATE_REMOVE,
+    // Playdate serial message received
+    EVENT_PLAYDATE_EVENT,
 } event_t;
 
 // a packed data structure for four volume levels
@@ -330,6 +336,22 @@ struct event_softcut_position {
     float pos;
 }; // + 8
 
+struct event_playdate_add {
+    struct event_common common;
+    void *dev;
+};
+
+struct event_playdate_remove {
+    struct event_common common;
+    uint32_t id;
+};
+
+struct event_playdate_event {
+    struct event_common common;
+    void *dev;
+    uint32_t id;
+};
+
 // forward declaration to hide scripting layer dependencies
 struct event_custom_ops;
 
@@ -377,4 +399,7 @@ union event_data {
     struct event_softcut_render softcut_render;
     struct event_softcut_position softcut_position;
     struct event_custom custom;
+    struct event_playdate_add playdate_add;
+    struct event_playdate_remove playdate_remove;
+    struct event_playdate_event playdate_event;
 };
